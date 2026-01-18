@@ -424,7 +424,7 @@ function animateSingleChar(element, fromChar, toChar, delay) {
             const currentChar = chars[currentIndex];
             element.textContent = currentChar === ' ' ? '\u00A0' : currentChar;
             step++;
-        }, 40);
+        }, 60);
         
     }, delay);
 }
@@ -460,3 +460,4 @@ window.addEventListener('resize', () => {
         }
     }, 500); // 0.5초 대기 (리사이즈 끝날 때까지)
 });
+
