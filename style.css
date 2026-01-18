@@ -1,0 +1,217 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Helvetica Neue', 'Arial', sans-serif;
+    background: #0a0a0a;
+    color: #fff;
+    padding: 1.5vw;
+    overflow-x: hidden;
+}
+
+.container {
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 2vh;
+    font-size: clamp(24px, 3.5vw, 64px);
+    color: #ffffff;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+#display-board {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2vw;
+    background: #0a0a0a;
+}
+
+.column {
+    background: #000;
+    border: 1px solid #1a1a1a;
+}
+
+.column-header {
+    background: #1a1a1a;
+    padding: clamp(12px, 1.5vw, 24px);
+    text-align: center;
+    font-size: clamp(18px, 2vw, 32px);
+    font-weight: 300;
+    letter-spacing: 0.2em;
+    border-bottom: 2px solid #333;
+}
+
+.flight-row {
+    display: grid;
+    grid-template-columns: 1fr 2.2fr 0.9fr 1.2fr;
+    gap: clamp(8px, 1vw, 16px);
+    padding: clamp(12px, 1.2vw, 20px);
+    border-bottom: 1px solid #1a1a1a;
+    align-items: center;
+    background: #000;
+    transition: background 0.2s ease;
+}
+
+.flight-row:last-child {
+    border-bottom: none;
+}
+
+.flight-row:hover {
+    background: #0a0a0a;
+}
+
+.flight-cell {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3px, 0.4vw, 6px);
+}
+
+.flight-cell strong {
+    color: #666;
+    font-size: clamp(8px, 0.7vw, 12px);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 400;
+    margin-bottom: 2px;
+}
+
+.flap-container {
+    display: inline-flex;
+    gap: clamp(1px, 0.15vw, 3px);
+}
+
+/* 플랩 문자와 공백 - 동일한 크기로 통일 */
+.flap-char, .flap-space {
+    display: inline-block;
+    width: clamp(12px, 1.2vw, 22px);
+    height: clamp(20px, 2vw, 36px);
+    background: #000;
+    text-align: center;
+    line-height: clamp(20px, 2vw, 36px);
+    font-size: clamp(12px, 1.2vw, 22px);
+    font-weight: 400;
+    font-family: 'Helvetica Neue', 'Arial', monospace;
+    border-radius: 2px;
+    box-shadow: 
+        inset 0 0 0 1px #1a1a1a,
+        inset 0 clamp(10px, 1vw, 18px) 0 rgba(0,0,0,0.2);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.1s ease;
+}
+
+.flap-char {
+    color: #fff;
+}
+
+.flap-space {
+    color: transparent;  /* 공백은 투명 */
+}
+
+.flap-char::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #0a0a0a;
+    transform: translateY(-1px);
+}
+
+.flap-char::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.03) 0%, transparent 100%);
+}
+
+.status-green .flap-char {
+    color: #4caf50;
+}
+
+.status-orange .flap-char {
+    color: #ff9800;
+}
+
+.status-red .flap-char {
+    color: #f44336;
+}
+
+@keyframes flipChar {
+    0% {
+        transform: scaleY(1) rotateX(0deg);
+        opacity: 1;
+    }
+    50% {
+        transform: scaleY(0.4) rotateX(-10deg);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scaleY(1) rotateX(0deg);
+        opacity: 1;
+    }
+}
+
+.flap-char.flipping {
+    animation: flipChar 0.08s ease-in-out;
+}
+
+/* 태블릿 */
+@media (max-width: 1024px) {
+    #display-board {
+        grid-template-columns: 1fr;
+        gap: 3vw;
+    }
+    
+    .flight-row {
+        grid-template-columns: 1fr 2fr 0.8fr 1fr;
+    }
+}
+
+/* 모바일 */
+@media (max-width: 768px) {
+    body {
+        padding: 3vw;
+    }
+    
+    .flight-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .flight-cell {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+}
+
+/* 대형 화면 (4K) */
+@media (min-width: 2560px) {
+    h1 {
+        font-size: 64px;
+    }
+    
+    .column-header {
+        font-size: 32px;
+    }
+    
+    .flap-char, .flap-space {
+        font-size: 22px;
+        width: 22px;
+        height: 36px;
+        line-height: 36px;
+    }
+}

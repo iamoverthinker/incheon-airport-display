@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incheon Airport</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Incheon International Airport</h1>
+        <div id="display-board">
+            <div class="column arrivals-column">
+                <h2 class="column-header">ARRIVALS</h2>
+                <div id="arrivals-list"></div>
+            </div>
+            <div class="column departures-column">
+                <h2 class="column-header">DEPARTURES</h2>
+                <div id="departures-list"></div>
+            </div>
+        </div>
+    </div>
+    <script src="https://unpkg.com/split-flap-display@latest/dist/split-flap-display.min.js"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
