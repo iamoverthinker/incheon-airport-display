@@ -98,29 +98,34 @@ function createFlapText(text, maxLength = 19) {
 // 시간 범위 필터링 함수 (도착/출발 구분)
 function filterFlightsByTimeRange(flights, type) {
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // 오늘 자정 ~ 내일 자정
+    const todayStart = today.getTime();
+    const todayEnd = todayStart + 24 * 60 * 60 * 1000;
     
     // 타입에 따라 다른 시간 범위 적용
     let minTime, maxTime;
     
     if (type === 'arrival') {
-        // 도착편: 2시간 전 ~ 1시간 후
+        // 도착편: 현재 시간 기준 2시간 전 ~ 6시간 후
         minTime = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-        maxTime = new Date(now.getTime() + 1 * 60 * 60 * 1000);
+        maxTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
     } else {
-        // 출발편: 1시간 전 ~ 4시간 후
+        // 출발편: 현재 시간 기준 1시간 전 ~ 12시간 후
         minTime = new Date(now.getTime() - 1 * 60 * 60 * 1000);
-        maxTime = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+        maxTime = new Date(now.getTime() + 12 * 60 * 60 * 1000);
     }
     
     const typeLabel = type === 'arrival' ? 'Arrivals' : 'Departures';
-    console.log(`${typeLabel} filter range: ${minTime.toLocaleTimeString('ko-KR')} ~ ${maxTime.toLocaleTimeString('ko-KR')}`);
+    console.log(`${typeLabel} filter - Today: ${today.toLocaleDateString('ko-KR')}`);
+    console.log(`${typeLabel} filter - Time range: ${minTime.toLocaleTimeString('ko-KR')} ~ ${maxTime.toLocaleTimeString('ko-KR')}`);
     
     return flights.filter(flight => {
         try {
             const timeStr = flight.scheduleDatetime || flight.estimatedDatetime;
             
             if (!timeStr || timeStr.length < 12) {
-                console.warn(`Invalid time format for flight ${flight.flightId}:`, timeStr);
                 return false;
             }
             
@@ -131,18 +136,24 @@ function filterFlightsByTimeRange(flights, type) {
             const minute = parseInt(timeStr.substring(10, 12), 10);
             
             if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(minute)) {
-                console.warn(`Failed to parse time for flight ${flight.flightId}:`, timeStr);
                 return false;
             }
             
             const flightTime = new Date(year, month, day, hour, minute);
             
             if (isNaN(flightTime.getTime())) {
-                console.warn(`Invalid date created for flight ${flight.flightId}:`, timeStr);
                 return false;
             }
             
-            return flightTime >= minTime && flightTime <= maxTime;
+            // 1단계: 오늘 날짜인지 확인
+            const isToday = flightTime.getTime() >= todayStart && 
+                           flightTime.getTime() < todayEnd;
+            
+            // 2단계: 현재 시간 기준 범위 내인지 확인
+            const inTimeRange = flightTime >= minTime && flightTime <= maxTime;
+            
+            // 두 조건 모두 만족해야 표시
+            return isToday && inTimeRange;
             
         } catch (error) {
             console.error(`Error filtering flight ${flight.flightId}:`, error);
@@ -150,6 +161,7 @@ function filterFlightsByTimeRange(flights, type) {
         }
     });
 }
+
 
 // API 호출 (Vercel 프록시 사용)
 async function fetchFlightData(type) {
