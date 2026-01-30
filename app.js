@@ -105,57 +105,59 @@ function createFlapText(text, maxLength = 19) {
 function filterFlightsByTimeRange(flights, type) {
     const now = new Date();
     
-    // 타입에 따라 다른 시간 범위 적용
     let minTime, maxTime;
     
     if (type === 'arrival') {
-        // 도착편: 현재 시간 기준 24시간 전 ~ 12시간 후
-        minTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        maxTime = new Date(now.getTime() + 12 * 60 * 60 * 1000);
+        // 도착편: 4시간 전 ~ 4시간 후
+        minTime = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+        maxTime = new Date(now.getTime() + 4 * 60 * 60 * 1000);
     } else {
-        // 출발편: 현재 시간 기준 6시간 전 ~ 24시간 후
-        minTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-        maxTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        // 출발편: 1시간 전 ~ 6시간 후
+        minTime = new Date(now.getTime() - 1 * 60 * 60 * 1000);
+        maxTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
     }
     
     const typeLabel = type === 'arrival' ? 'Arrivals' : 'Departures';
-    console.log(`${typeLabel} filter - Time range: ${minTime.toLocaleString('ko-KR')} ~ ${maxTime.toLocaleString('ko-KR')}`);
+    console.log(`${typeLabel} filter - Range: ${minTime.toLocaleTimeString('ko-KR')} ~ ${maxTime.toLocaleTimeString('ko-KR')}`);
     
-    return flights.filter(flight => {
-        try {
-            const timeStr = flight.scheduleDatetime || flight.estimatedDatetime;
-            
-            if (!timeStr || timeStr.length < 12) {
-                return false;
-            }
-            
-            const year = parseInt(timeStr.substring(0, 4), 10);
-            const month = parseInt(timeStr.substring(4, 6), 10) - 1;
-            const day = parseInt(timeStr.substring(6, 8), 10);
-            const hour = parseInt(timeStr.substring(8, 10), 10);
-            const minute = parseInt(timeStr.substring(10, 12), 10);
-            
-            if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hour) || isNaN(minute)) {
-                return false;
-            }
-            
-            const flightTime = new Date(year, month, day, hour, minute);
-            
-            if (isNaN(flightTime.getTime())) {
-                return false;
-            }
-            
-            // 시간 범위만 확인 (날짜 넘김 자동 처리)
-            const inTimeRange = flightTime >= minTime && flightTime <= maxTime;
-            
-            return inTimeRange;
-            
-        } catch (error) {
-            console.error(`Error filtering flight ${flight.flightId}:`, error);
+    let passCount = 0;
+    let failCount = 0;
+    
+    const filtered = flights.filter((flight, index) => {
+        const timeStr = flight.scheduleDatetime || flight.estimatedDatetime;
+        
+        if (!timeStr || timeStr.length < 12) {
+            failCount++;
             return false;
         }
+        
+        const year = parseInt(timeStr.substring(0, 4), 10);
+        const month = parseInt(timeStr.substring(4, 6), 10) - 1;
+        const day = parseInt(timeStr.substring(6, 8), 10);
+        const hour = parseInt(timeStr.substring(8, 10), 10);
+        const minute = parseInt(timeStr.substring(10, 12), 10);
+        
+        const flightTime = new Date(year, month, day, hour, minute);
+        
+        // 처음 3개만 상세 로그
+        if (index < 3) {
+            console.log(`  Test: ${flight.flightId} at ${flightTime.toLocaleString('ko-KR')}`);
+            console.log(`    Min: ${minTime.getTime()}, Flight: ${flightTime.getTime()}, Max: ${maxTime.getTime()}`);
+            console.log(`    Pass: ${flightTime >= minTime && flightTime <= maxTime}`);
+        }
+        
+        const pass = flightTime >= minTime && flightTime <= maxTime;
+        if (pass) passCount++;
+        else failCount++;
+        
+        return pass;
     });
+    
+    console.log(`${typeLabel} - Pass: ${passCount}, Fail: ${failCount}`);
+    
+    return filtered;
 }
+
 
 // API 호출 (Vercel 프록시 사용)
 async function fetchFlightData(type) {
