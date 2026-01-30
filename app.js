@@ -71,8 +71,12 @@ function translateStatus(statusKr) {
         '출발': 'DEPARTED',
         '지연': 'DELAYED',
         '결항': 'CANCELLED',
+        '취소': 'CANCELLED',
         '탑승중': 'BOARDING',
-        '예정': 'SCHEDULED'
+        '예정': 'SCHEDULED',
+        '탑승구변경': 'GATE CHG',
+        '수하물': 'BAGGAGE',
+        '체크인': 'CHECK-IN'
     };
     
     for (const [kr, en] of Object.entries(translations)) {
@@ -80,6 +84,8 @@ function translateStatus(statusKr) {
             return en;
         }
     }
+    
+    // 알 수 없는 상태는 원본 그대로 대문자로
     return statusKr.toUpperCase();
 }
 
@@ -108,13 +114,13 @@ function filterFlightsByTimeRange(flights, type) {
     let minTime, maxTime;
     
     if (type === 'arrival') {
-        // 도착편: 현재 시간 기준 2시간 전 ~ 6시간 후
-        minTime = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-        maxTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+        // 도착편: 현재 시간 기준 4시간 전 ~ 8시간 후
+        minTime = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+        maxTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
     } else {
-        // 출발편: 현재 시간 기준 1시간 전 ~ 12시간 후
-        minTime = new Date(now.getTime() - 1 * 60 * 60 * 1000);
-        maxTime = new Date(now.getTime() + 12 * 60 * 60 * 1000);
+        // 출발편: 현재 시간 기준 2시간 전 ~ 18시간 후
+        minTime = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+        maxTime = new Date(now.getTime() + 18 * 60 * 60 * 1000);
     }
     
     const typeLabel = type === 'arrival' ? 'Arrivals' : 'Departures';
@@ -161,7 +167,6 @@ function filterFlightsByTimeRange(flights, type) {
         }
     });
 }
-
 
 // API 호출 (Vercel 프록시 사용)
 async function fetchFlightData(type) {
@@ -213,11 +218,9 @@ async function fetchFlightData(type) {
             const estimatedDatetime = item.querySelector('estimatedDatetime')?.textContent || '';
             const remarkKr = item.querySelector('remark')?.textContent || '-';
             
-            if (index === 0) {
-                console.log('=== Debug First Flight ===');
-                console.log('Flight ID:', flightId);
-                console.log('scheduleDatetime:', scheduleDatetime);
-                console.log('estimatedDatetime:', estimatedDatetime);
+            // 디버깅: 처음 3개 항공편의 원본 상태 출력
+            if (index < 3) {
+                console.log(`Flight ${index + 1}: ${flightId} - 원본 상태: "${remarkKr}"`);
             }
             
             const timeValue = scheduleDatetime || estimatedDatetime;
@@ -229,14 +232,22 @@ async function fetchFlightData(type) {
                 status: translateStatus(remarkKr),
                 statusClass: getStatusClass(remarkKr),
                 scheduleDatetime,
-                estimatedDatetime
+                estimatedDatetime,
+                originalStatus: remarkKr // 원본 상태 보관
             });
         });
+        
+        // 상태 분포 분석
+        const statusDistribution = {};
+        flightData.forEach(f => {
+            statusDistribution[f.status] = (statusDistribution[f.status] || 0) + 1;
+        });
+        console.log(`${type === 'arrival' ? 'Arrivals' : 'Departures'} - Status Distribution:`, statusDistribution);
         
         // 시간 범위 필터링 적용
         const filteredData = filterFlightsByTimeRange(flightData, type);
         
-        // 필터링 결과가 0개면 전체 데이터 사용 (테스트 데이터 대응)
+        // 필터링 결과가 0개면 전체 데이터 사용 (fallback)
         const finalData = filteredData.length > 0 ? filteredData : flightData;
         
         console.log(`${type === 'arrival' ? 'Arrivals' : 'Departures'} - Total: ${flightData.length}, Filtered: ${filteredData.length}, Using: ${finalData.length}`);
@@ -316,7 +327,7 @@ function formatTime(dateTime) {
 function getStatusClass(status) {
     if (status.includes('출발') || status.includes('도착')) return 'status-green';
     if (status.includes('지연')) return 'status-orange';
-    if (status.includes('결항')) return 'status-red';
+    if (status.includes('결항') || status.includes('취소')) return 'status-red';
     return '';
 }
 
