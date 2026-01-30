@@ -73,6 +73,8 @@ function translateStatus(statusKr) {
         '결항': 'CANCELLED',
         '취소': 'CANCELLED',
         '탑승중': 'BOARDING',
+        '탑승준비': 'GO TO GATE', //
+        '마감': 'CLOSED',      // 
         '예정': 'SCHEDULED',
         '탑승구변경': 'GATE CHG',
         '수하물': 'BAGGAGE',
