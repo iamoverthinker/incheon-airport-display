@@ -109,13 +109,13 @@ function filterFlightsByTimeRange(flights, type) {
     let minTime, maxTime;
     
     if (type === 'arrival') {
-        // 도착편: 현재 시간 기준 4시간 전 ~ 8시간 후
-        minTime = new Date(now.getTime() - 4 * 60 * 60 * 1000);
-        maxTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+        // 도착편: 현재 시간 기준 24시간 전 ~ 12시간 후
+        minTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        maxTime = new Date(now.getTime() + 12 * 60 * 60 * 1000);
     } else {
-        // 출발편: 현재 시간 기준 2시간 전 ~ 18시간 후
-        minTime = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-        maxTime = new Date(now.getTime() + 18 * 60 * 60 * 1000);
+        // 출발편: 현재 시간 기준 6시간 전 ~ 24시간 후
+        minTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        maxTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     }
     
     const typeLabel = type === 'arrival' ? 'Arrivals' : 'Departures';
@@ -145,7 +145,7 @@ function filterFlightsByTimeRange(flights, type) {
                 return false;
             }
             
-            // 시간 범위만 확인 (날짜 넘김 자동 처리됨)
+            // 시간 범위만 확인 (날짜 넘김 자동 처리)
             const inTimeRange = flightTime >= minTime && flightTime <= maxTime;
             
             return inTimeRange;
@@ -156,7 +156,6 @@ function filterFlightsByTimeRange(flights, type) {
         }
     });
 }
-
 
 // API 호출 (Vercel 프록시 사용)
 async function fetchFlightData(type) {
@@ -208,11 +207,6 @@ async function fetchFlightData(type) {
             const estimatedDatetime = item.querySelector('estimatedDatetime')?.textContent || '';
             const remarkKr = item.querySelector('remark')?.textContent || '-';
             
-            // 디버깅: 처음 3개 항공편의 원본 상태 출력
-            if (index < 3) {
-                console.log(`Flight ${index + 1}: ${flightId} - 원본 상태: "${remarkKr}"`);
-            }
-            
             const timeValue = scheduleDatetime || estimatedDatetime;
             
             flightData.push({
@@ -222,17 +216,9 @@ async function fetchFlightData(type) {
                 status: translateStatus(remarkKr),
                 statusClass: getStatusClass(remarkKr),
                 scheduleDatetime,
-                estimatedDatetime,
-                originalStatus: remarkKr // 원본 상태 보관
+                estimatedDatetime
             });
         });
-        
-        // 상태 분포 분석
-        const statusDistribution = {};
-        flightData.forEach(f => {
-            statusDistribution[f.status] = (statusDistribution[f.status] || 0) + 1;
-        });
-        console.log(`${type === 'arrival' ? 'Arrivals' : 'Departures'} - Status Distribution:`, statusDistribution);
         
         // 시간 범위 필터링 적용
         const filteredData = filterFlightsByTimeRange(flightData, type);
@@ -284,11 +270,6 @@ function displayFlights(type, flights) {
     }
     
     flights.forEach((flight, index) => {
-        
-    if (index < 3) {
-        console.log(`Display: ${flight.flightId} - ${flight.scheduleDatetime} - ${flight.status}`);
-    }    
-        
         const row = document.createElement('div');
         row.className = 'flight-row';
         row.style.animationDelay = `${index * 0.05}s`;
