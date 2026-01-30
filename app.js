@@ -104,11 +104,6 @@ function createFlapText(text, maxLength = 19) {
 // 시간 범위 필터링 함수 (도착/출발 구분)
 function filterFlightsByTimeRange(flights, type) {
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    // 오늘 자정 ~ 내일 자정
-    const todayStart = today.getTime();
-    const todayEnd = todayStart + 24 * 60 * 60 * 1000;
     
     // 타입에 따라 다른 시간 범위 적용
     let minTime, maxTime;
@@ -124,8 +119,7 @@ function filterFlightsByTimeRange(flights, type) {
     }
     
     const typeLabel = type === 'arrival' ? 'Arrivals' : 'Departures';
-    console.log(`${typeLabel} filter - Today: ${today.toLocaleDateString('ko-KR')}`);
-    console.log(`${typeLabel} filter - Time range: ${minTime.toLocaleTimeString('ko-KR')} ~ ${maxTime.toLocaleTimeString('ko-KR')}`);
+    console.log(`${typeLabel} filter - Time range: ${minTime.toLocaleString('ko-KR')} ~ ${maxTime.toLocaleString('ko-KR')}`);
     
     return flights.filter(flight => {
         try {
@@ -151,15 +145,10 @@ function filterFlightsByTimeRange(flights, type) {
                 return false;
             }
             
-            // 1단계: 오늘 날짜인지 확인
-            const isToday = flightTime.getTime() >= todayStart && 
-                           flightTime.getTime() < todayEnd;
-            
-            // 2단계: 현재 시간 기준 범위 내인지 확인
+            // 시간 범위만 확인 (날짜 넘김 자동 처리됨)
             const inTimeRange = flightTime >= minTime && flightTime <= maxTime;
             
-            // 두 조건 모두 만족해야 표시
-            return isToday && inTimeRange;
+            return inTimeRange;
             
         } catch (error) {
             console.error(`Error filtering flight ${flight.flightId}:`, error);
@@ -167,6 +156,7 @@ function filterFlightsByTimeRange(flights, type) {
         }
     });
 }
+
 
 // API 호출 (Vercel 프록시 사용)
 async function fetchFlightData(type) {
