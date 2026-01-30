@@ -460,5 +460,3 @@ window.addEventListener('resize', () => {
         }
     }, 500); // 0.5초 대기 (리사이즈 끝날 때까지)
 });
-
-
