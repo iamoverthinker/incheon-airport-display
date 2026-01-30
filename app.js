@@ -284,6 +284,11 @@ function displayFlights(type, flights) {
     }
     
     flights.forEach((flight, index) => {
+        
+    if (index < 3) {
+        console.log(`Display: ${flight.flightId} - ${flight.scheduleDatetime} - ${flight.status}`);
+    }    
+        
         const row = document.createElement('div');
         row.className = 'flight-row';
         row.style.animationDelay = `${index * 0.05}s`;
