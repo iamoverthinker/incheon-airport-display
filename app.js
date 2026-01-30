@@ -1,9 +1,15 @@
-// 전역 변수 (맨 위에 한 번만 선언)
-let currentPage = 0;
+// 전역 변수
 let flightData = {
     arrivals: [],
     departures: []
 };
+
+// [핵심 변경] 출발/도착 페이지 인덱스를 따로 관리 (독립 페이징)
+let pageIndex = {
+    arrivals: 0,
+    departures: 0
+};
+
 let airportTranslations = {};
 
 const ROTATION_INTERVAL = 10000; // 10초마다 페이지 전환
@@ -37,14 +43,6 @@ let ROWS_PER_PAGE = getRowsPerPage();
 
 console.log(`Screen: ${window.innerWidth}x${window.innerHeight}, Rows per page: ${ROWS_PER_PAGE}`);
 
-// 로딩 표시 함수 (옵션)
-function showLoading(isLoading) {
-    const statusEl = document.getElementById('loading-status');
-    if (statusEl) {
-        statusEl.style.display = isLoading ? 'block' : 'none';
-    }
-}
-
 // 공항 데이터 로드 함수
 async function loadAirportData() {
     try {
@@ -56,23 +54,21 @@ async function loadAirportData() {
     }
 }
 
-// 공항명 영어 변환 (프로덕션)
+// 공항명 영어 변환
 function translateAirport(airportKr) {
-    // 1. JSON에 있으면 반환
     if (airportTranslations[airportKr]) {
         return airportTranslations[airportKr];
     }
     
-    // 2. 괄호 제거 후 재검색 (예: "다낭(다낭)" -> "다낭")
+    // 괄호 제거 후 재검색 (예: "다낭(다낭)" -> "다낭")
     const cleanName = airportKr.replace(/\(.*\)/, '').trim();
     if (airportTranslations[cleanName]) {
         return airportTranslations[cleanName];
     }
 
-    // 3. 없으면 대문자로 변환 (영어는 그대로, 한글은 경고 후 반환)
+    // 없으면 대문자로 변환 (영어는 그대로, 한글은 눈에 띄게)
     const result = airportKr.toUpperCase();
     
-    // 한글이 포함되어 있으면 경고 로그 출력
     if (/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(result)) {
         console.warn(`⚠️ Missing airport in JSON: ${airportKr}`);
     }
@@ -89,8 +85,8 @@ function translateStatus(statusKr) {
         '결항': 'CANCELLED',
         '취소': 'CANCELLED',
         '탑승중': 'BOARDING',
-        '탑승준비': 'GATE OPEN', // 의미 명확화
-        '마감': 'CLOSED',      
+        '탑승준비': 'GATE OPEN',
+        '마감': 'CLOSED',
         '예정': 'SCHEDULED',
         '탑승구변경': 'GATE CHNG',
         '수하물': 'BAGGAGE',
@@ -104,8 +100,23 @@ function translateStatus(statusKr) {
         }
     }
     
-    // 알 수 없는 상태는 원본 그대로 대문자로
     return statusKr.toUpperCase();
+}
+
+// [핵심 변경] 상태 색상 클래스 기준 개선
+function getStatusClass(status) {
+    // 1. 빨강 (심각): 결항, 취소, 회항
+    if (status.includes('결항') || status.includes('취소') || status.includes('회항')) return 'status-red';
+    
+    // 2. 오렌지/노랑 (주의, 진행중): 지연, 탑승구변경, 마감, 탑승중
+    if (status.includes('지연') || status.includes('탑승구변경')) return 'status-orange';
+    if (status.includes('탑승중') || status.includes('마감')) return 'status-orange'; 
+
+    // 3. 초록 (완료/정상): 출발, 도착, 이륙
+    if (status.includes('도착') || status.includes('출발') || status.includes('이륙')) return 'status-green';
+
+    // 4. 나머지(예정, 체크인 등)는 기본값(흰색)
+    return ''; 
 }
 
 // 스플릿 플랩 텍스트 생성
@@ -115,42 +126,30 @@ function createFlapText(text, maxLength = 19) {
     const chars = padded.split('');
     
     return chars.map(char => {
-        // 공백도 동일하게 flap-char로 처리 (빈 칸 유지)
         return `<span class="flap-char">${char === ' ' ? '&nbsp;' : char}</span>`;
     }).join('');
 }
 
-// 시간 포맷팅 (YYYYMMDDHHMM -> HH:MM)
+// 시간 포맷팅
 function formatTime(dateTime) {
     if (!dateTime || dateTime.length < 12) return '--:--';
     return `${dateTime.slice(8, 10)}:${dateTime.slice(10, 12)}`;
 }
 
-// 상태에 따른 색상 클래스
-function getStatusClass(status) {
-    if (status.includes('출발') || status.includes('도착')) return 'status-green';
-    if (status.includes('지연')) return 'status-orange';
-    if (status.includes('결항') || status.includes('취소')) return 'status-red';
-    return '';
-}
-
-// 시간 범위 필터링 함수 (도착/출발 구분)
+// 시간 범위 필터링 함수
 function filterFlightsByTimeRange(flights, type) {
     const now = new Date();
     
     let minTime, maxTime;
     
     if (type === 'arrival') {
-        // 도착편: 4시간 전 ~ 4시간 후 (여유롭게)
         minTime = new Date(now.getTime() - 4 * 60 * 60 * 1000);
         maxTime = new Date(now.getTime() + 4 * 60 * 60 * 1000);
     } else {
-        // 출발편: 1시간 전 ~ 6시간 후 (탑승 수속 고려)
         minTime = new Date(now.getTime() - 1 * 60 * 60 * 1000);
         maxTime = new Date(now.getTime() + 6 * 60 * 60 * 1000);
     }
     
-    // 유효한 비행 데이터만 1차 필터링 (시간 정보 없는 것 제외)
     const validFlights = flights.filter(f => {
         const t = f.scheduleDatetime || f.estimatedDatetime;
         return t && t.length >= 12;
@@ -170,7 +169,6 @@ function filterFlightsByTimeRange(flights, type) {
         return flightTime >= minTime && flightTime <= maxTime;
     });
 
-    // 시간순 정렬 (과거 -> 미래)
     filtered.sort((a, b) => {
         const timeA = a.scheduleDatetime || a.estimatedDatetime;
         const timeB = b.scheduleDatetime || b.estimatedDatetime;
@@ -182,9 +180,8 @@ function filterFlightsByTimeRange(flights, type) {
     return filtered;
 }
 
-// [핵심 수정] 3일치(어제, 오늘, 내일) 데이터를 한 번에 가져와서 합치는 함수
+// 3일치 데이터 한 번에 가져오기
 async function fetchAllFlightData() {
-    // 1. 날짜 3개 계산 (어제, 오늘, 내일)
     const dates = [-1, 0, 1].map(offset => {
         const d = new Date();
         d.setDate(d.getDate() + offset);
@@ -196,17 +193,14 @@ async function fetchAllFlightData() {
 
     console.log(`Fetching flight data for dates: ${dates.join(', ')}`);
 
-    // 2. 모든 요청(날짜 3개 x 타입 2개 = 총 6개)을 생성
     const promises = [];
     const types = ['departure', 'arrival'];
 
-    // 개발 환경 감지
     const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const baseUrl = isDev ? 'http://localhost:3000' : '';
 
     dates.forEach(date => {
         types.forEach(type => {
-            // 캐싱 방지를 위해 시간값(_t) 추가
             const url = `${baseUrl}/api/flights?type=${type}&date=${date}&_t=${Date.now()}`;
             
             promises.push(
@@ -219,7 +213,7 @@ async function fetchAllFlightData() {
                         const parser = new DOMParser();
                         const xml = parser.parseFromString(text, 'text/xml');
                         const errorMsg = xml.querySelector('returnAuthMsg');
-                        if (errorMsg) throw new Error(errorMsg.textContent);
+                        if (errorMsg) return { type, data: [] }; // 에러 시 빈 배열
                         
                         const items = xml.querySelectorAll('item');
                         const parsedList = [];
@@ -235,9 +229,9 @@ async function fetchAllFlightData() {
                             
                             parsedList.push({
                                 flightId,
-                                airport: translateAirport(airportKr), // 공항명 변환
+                                airport: translateAirport(airportKr),
                                 time: formatTime(timeValue),
-                                status: translateStatus(remarkKr),    // 상태 변환
+                                status: translateStatus(remarkKr),
                                 statusClass: getStatusClass(remarkKr),
                                 scheduleDatetime,
                                 estimatedDatetime
@@ -247,17 +241,14 @@ async function fetchAllFlightData() {
                     })
                     .catch(err => {
                         console.warn(`Failed to fetch ${type} on ${date}:`, err);
-                        return { type, data: [] }; // 실패해도 빈 배열 반환 (전체 중단 방지)
+                        return { type, data: [] }; 
                     })
             );
         });
     });
 
     try {
-        // 3. 6개 요청 동시에 실행 (병렬 처리)
         const results = await Promise.all(promises);
-
-        // 4. 데이터 합치기
         let allDepartures = [];
         let allArrivals = [];
 
@@ -269,11 +260,10 @@ async function fetchAllFlightData() {
             }
         });
 
-        // 5. 필터링 및 전역 변수 저장
         flightData.departures = filterFlightsByTimeRange(allDepartures, 'departure');
         flightData.arrivals = filterFlightsByTimeRange(allArrivals, 'arrival');
 
-        // 필터 결과가 0개면, 어쩔 수 없이 전체 데이터 중 일부라도 보여주기 (Fallback)
+        // Fallback: 필터 결과가 0개면 원본 데이터 일부 사용
         if (flightData.departures.length === 0 && allDepartures.length > 0) {
             flightData.departures = allDepartures.slice(0, 20);
         }
@@ -283,8 +273,10 @@ async function fetchAllFlightData() {
 
         console.log(`Updated Data - Dep: ${flightData.departures.length}, Arr: ${flightData.arrivals.length}`);
 
-        // 6. 화면 갱신 (첫 페이지부터)
-        currentPage = 0;
+        // 데이터 갱신 시 페이지 인덱스 초기화
+        pageIndex.arrivals = 0;
+        pageIndex.departures = 0;
+        
         displayCurrentPage();
 
     } catch (error) {
@@ -292,36 +284,41 @@ async function fetchAllFlightData() {
     }
 }
 
-// 현재 페이지 표시
+// [핵심 변경] 독립 페이징 적용된 displayCurrentPage
 function displayCurrentPage() {
-    // 출발/도착 중 더 긴 페이지 수 계산
-    const maxPages = Math.max(
-        Math.ceil(flightData.arrivals.length / ROWS_PER_PAGE),
-        Math.ceil(flightData.departures.length / ROWS_PER_PAGE)
-    );
-    
-    // 데이터가 아예 없으면 0이 될 수 있으므로 최소 1로 보정
-    const safeMaxPages = maxPages > 0 ? maxPages : 1;
-    
-    // 현재 페이지가 범위를 넘지 않도록 조정
-    const safeCurrentPage = currentPage % safeMaxPages;
-    
-    const startIdx = safeCurrentPage * ROWS_PER_PAGE;
-    const endIdx = startIdx + ROWS_PER_PAGE;
-    
-    // 데이터 슬라이싱 (범위 넘어가면 빈 배열 반환됨)
-    const currentArrivals = flightData.arrivals.slice(startIdx, endIdx);
-    const currentDepartures = flightData.departures.slice(startIdx, endIdx);
-    
-    // 빈 줄 채우기 (화면 흔들림 방지)
-    fillEmptyRows(currentArrivals, ROWS_PER_PAGE);
-    fillEmptyRows(currentDepartures, ROWS_PER_PAGE);
-    
-    displayFlights('arrivals', currentArrivals);
-    displayFlights('departures', currentDepartures);
+    displaySection('arrivals');
+    displaySection('departures');
 }
 
-// 빈 행 채우기 유틸리티
+function displaySection(type) {
+    const listData = flightData[type];
+    const currentIndex = pageIndex[type]; // 각 타입별 페이지 인덱스 사용
+    
+    // 데이터가 없으면 빈 리스트 표시
+    if (listData.length === 0) {
+        fillEmptyRows([], ROWS_PER_PAGE);
+        displayFlights(type, []);
+        return;
+    }
+
+    // 전체 페이지 수 계산
+    const totalPages = Math.ceil(listData.length / ROWS_PER_PAGE);
+    
+    // 안전한 페이지 인덱스 계산
+    const safePage = currentIndex % (totalPages || 1);
+    
+    const startIdx = safePage * ROWS_PER_PAGE;
+    const endIdx = startIdx + ROWS_PER_PAGE;
+    
+    const currentFlights = listData.slice(startIdx, endIdx);
+    
+    // 빈 줄 채우기
+    fillEmptyRows(currentFlights, ROWS_PER_PAGE);
+    
+    displayFlights(type, currentFlights);
+}
+
+// 빈 행 채우기
 function fillEmptyRows(list, targetCount) {
     while (list.length < targetCount) {
         list.push({
@@ -376,20 +373,24 @@ function renderList(container, flights, type) {
     });
 }
 
-// 페이지 로테이션
+// [핵심 변경] 독립 로테이션 로직
 function rotatePage() {
-    const maxPages = Math.max(
-        Math.ceil(flightData.arrivals.length / ROWS_PER_PAGE),
-        Math.ceil(flightData.departures.length / ROWS_PER_PAGE)
-    );
+    // 1. 도착편 페이지 넘기기
+    const arrivalPages = Math.ceil(flightData.arrivals.length / ROWS_PER_PAGE);
+    if (arrivalPages > 1) {
+        pageIndex.arrivals = (pageIndex.arrivals + 1) % arrivalPages;
+    }
+
+    // 2. 출발편 페이지 넘기기 (도착편과 별개로 동작)
+    const departurePages = Math.ceil(flightData.departures.length / ROWS_PER_PAGE);
+    if (departurePages > 1) {
+        pageIndex.departures = (pageIndex.departures + 1) % departurePages;
+    }
     
-    if (maxPages <= 1) return; // 1페이지 이하면 로테이션 안 함
-    
-    currentPage = (currentPage + 1) % maxPages;
     displayCurrentPage();
 }
 
-// 스플릿 플랩 문자 변경 애니메이션 (기존 로직 유지)
+// 스플릿 플랩 문자 변경 애니메이션
 function animateFlightDataChange(type, newFlights) {
     const listId = type === 'arrivals' ? 'arrivals-list' : 'departures-list';
     const rows = document.querySelectorAll(`#${listId} .flight-row`);
@@ -400,7 +401,6 @@ function animateFlightDataChange(type, newFlights) {
         const flight = newFlights[rowIndex];
         const cells = row.querySelectorAll('.flight-cell .flap-container');
         
-        // 데이터가 없으면 빈 문자열로 처리
         const fId = flight.flightId || '';
         const fAir = flight.airport || '';
         const fTime = flight.time || '';
@@ -421,7 +421,6 @@ function animateFlightDataChange(type, newFlights) {
             const chars = cell.querySelectorAll('.flap-char');
             const newText = newTexts[cellIndex];
             
-            // 글자 수가 다르면(리사이즈 등) 새로 그리기
             if (chars.length !== newText.length) {
                 cell.innerHTML = createFlapText(newText.trim(), newText.length);
                 return;
@@ -432,7 +431,6 @@ function animateFlightDataChange(type, newFlights) {
                 const targetChar = newText[charIndex];
                 
                 if (currentChar !== targetChar) {
-                    // 순차적 딜레이로 "파다닥" 효과
                     const delay = rowIndex * 50 + cellIndex * 20 + charIndex * 10;
                     animateSingleChar(charElement, currentChar, targetChar, delay);
                 }
@@ -450,7 +448,6 @@ function animateSingleChar(element, fromChar, toChar, delay) {
         if (currentIndex === -1) currentIndex = 0;
         
         const targetIndex = chars.indexOf(toChar);
-        // 문자가 목록에 없으면 바로 변경
         if (targetIndex === -1) {
             element.textContent = toChar === ' ' ? '\u00A0' : toChar;
             return;
@@ -459,7 +456,6 @@ function animateSingleChar(element, fromChar, toChar, delay) {
         let distance = targetIndex - currentIndex;
         if (distance < 0) distance += chars.length;
         
-        // 너무 길지 않게 스텝 제한
         const steps = Math.min(distance, 5 + Math.floor(Math.random() * 5));
         
         let step = 0;
@@ -476,7 +472,7 @@ function animateSingleChar(element, fromChar, toChar, delay) {
             const currentChar = chars[currentIndex];
             element.textContent = currentChar === ' ' ? '\u00A0' : currentChar;
             step++;
-        }, 60); // 속도 약간 빠르게 (60ms)
+        }, 60);
         
     }, delay);
 }
@@ -501,10 +497,11 @@ window.addEventListener('resize', () => {
             console.log(`Rows updated: ${ROWS_PER_PAGE} → ${newRowsPerPage}`);
             ROWS_PER_PAGE = newRowsPerPage;
             
-            // 리스트 초기화 후 다시 그리기
             document.getElementById('arrivals-list').innerHTML = '';
             document.getElementById('departures-list').innerHTML = '';
-            currentPage = 0;
+            
+            // 리사이즈 시 페이지 초기화
+            pageIndex = { arrivals: 0, departures: 0 };
             displayCurrentPage();
         }
     }, 500);
