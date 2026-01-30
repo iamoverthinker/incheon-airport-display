@@ -39,8 +39,9 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'API key not configured' });
     }
 
-    // 실제 API 호출 (searchDate로 수정!)
-    const targetUrl = `${apiUrl}?serviceKey=${apiKey}&searchDate=${date}&numOfRows=100&pageNo=1`;
+    // 실제 API 호출 (searchDate 사용 및 numOfRows를 4000으로 증가)
+    // 하루 전체 운항편을 가져와야 현재 시간대 데이터를 필터링할 수 있음
+    const targetUrl = `${apiUrl}?serviceKey=${apiKey}&searchDate=${date}&numOfRows=4000&pageNo=1`;
     
     console.log('API Request:', targetUrl.replace(apiKey, '***'));
     
