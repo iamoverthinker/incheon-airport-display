@@ -4,11 +4,8 @@ let arrivalsData = [];
 let departuresData = [];
 let airportTranslations = {};
 
-
 const ROTATION_INTERVAL = 10000; // 10초
 const API_INTERVAL = 180000; // 3분
-
-
 
 // 화면 크기에 따라 최적 행 수 계산 (유연 + 안정)
 function getRowsPerPage() {
@@ -33,14 +30,10 @@ function getRowsPerPage() {
     return Math.max(calculatedRows, 4); // 최소 4개 보장
 }
 
-
 // 현재 화면에 맞는 행 수
 let ROWS_PER_PAGE = getRowsPerPage();
 
-
 console.log(`Screen: ${window.innerWidth}x${window.innerHeight}, Rows per page: ${ROWS_PER_PAGE}`);
-
-
 
 // 공항 데이터 로드 함수
 async function loadAirportData() {
@@ -52,7 +45,6 @@ async function loadAirportData() {
         console.error('Failed to load airport data:', error);
     }
 }
-
 
 // 공항명 영어 변환 (프로덕션)
 function translateAirport(airportKr) {
@@ -71,8 +63,6 @@ function translateAirport(airportKr) {
     
     return result;
 }
-
-
 
 // 상태 영어 변환
 function translateStatus(statusKr) {
@@ -93,7 +83,6 @@ function translateStatus(statusKr) {
     return statusKr.toUpperCase();
 }
 
-
 // 스플릿 플랩 텍스트 생성
 function createFlapText(text, maxLength = 19) {
     if (!text) text = '-';
@@ -105,7 +94,6 @@ function createFlapText(text, maxLength = 19) {
         return `<span class="flap-char">${char === ' ' ? '&nbsp;' : char}</span>`;
     }).join('');
 }
-
 
 // 시간 범위 필터링 함수 (도착/출발 구분)
 function filterFlightsByTimeRange(flights, type) {
@@ -163,8 +151,7 @@ function filterFlightsByTimeRange(flights, type) {
     });
 }
 
-
-// API 호출
+// API 호출 (Vercel 프록시 사용)
 async function fetchFlightData(type) {
     const today = new Date();
     const year = today.getFullYear();
@@ -172,16 +159,28 @@ async function fetchFlightData(type) {
     const day = String(today.getDate()).padStart(2, '0');
     const dateStr = `${year}${month}${day}`;
     
-    const operation = type === 'arrival' 
-        ? '/getFltArrivalsDeOdp'
-        : '/getFltDeparturesDeOdp';
+    // 개발 환경과 프로덕션 환경 자동 감지
+    const isDev = window.location.hostname === 'localhost' || 
+                  window.location.hostname === '127.0.0.1';
     
-    const apiUrl = 'https://apis.data.go.kr/B551177/statusOfAllFltDeOdp' + operation;
-    const targetUrl = `${apiUrl}?serviceKey=${CONFIG.API_KEY}&schDate=${dateStr}&numOfRows=100&pageNo=1`;
-    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+    const baseUrl = isDev 
+        ? 'http://localhost:3000'  // 로컬 테스트용 (vercel dev 실행 시)
+        : '';  // Vercel 배포 시 상대 경로
+    
+    const proxyUrl = `${baseUrl}/api/flights?type=${type}&date=${dateStr}`;
+    
+    console.log(`Fetching ${type} from proxy:`, proxyUrl);
 
     try {
         const response = await fetch(proxyUrl);
+        
+        // 에러 응답 처리
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Proxy error (${response.status}):`, errorText);
+            throw new Error(`Proxy returned ${response.status}: ${errorText}`);
+        }
+        
         const text = await response.text();
         
         const parser = new DOMParser();
@@ -238,8 +237,6 @@ async function fetchFlightData(type) {
     }
 }
 
-
-
 // 양쪽 API 모두 호출
 async function fetchAllData() {
     const [arrivals, departures] = await Promise.all([
@@ -253,7 +250,6 @@ async function fetchAllData() {
     displayCurrentPage();
 }
 
-
 // 현재 페이지 표시
 function displayCurrentPage() {
     const startIdx = currentPage * ROWS_PER_PAGE;
@@ -262,7 +258,6 @@ function displayCurrentPage() {
     displayFlights('arrivals', arrivalsData.slice(startIdx, endIdx));
     displayFlights('departures', departuresData.slice(startIdx, endIdx));
 }
-
 
 // 비행 정보 표시 (고정 칸 수)
 function displayFlights(type, flights) {
@@ -301,13 +296,10 @@ function displayFlights(type, flights) {
     });
 }
 
-
-
 function formatTime(dateTime) {
     if (!dateTime || dateTime.length < 12) return '--:--';
     return `${dateTime.slice(8, 10)}:${dateTime.slice(10, 12)}`;
 }
-
 
 function getStatusClass(status) {
     if (status.includes('출발') || status.includes('도착')) return 'status-green';
@@ -315,7 +307,6 @@ function getStatusClass(status) {
     if (status.includes('결항')) return 'status-red';
     return '';
 }
-
 
 // 페이지 로테이션 (애니메이션 적용)
 function rotatePage() {
@@ -348,7 +339,6 @@ function rotatePage() {
         displayFlights('departures', currentDepartures);
     }
 }
-
 
 // 스플릿 플랩 문자 변경 애니메이션
 function animateFlightDataChange(type, newFlights) {
@@ -390,7 +380,6 @@ function animateFlightDataChange(type, newFlights) {
     });
 }
 
-
 // 단일 문자 스플릿 플랩 애니메이션
 function animateSingleChar(element, fromChar, toChar, delay) {
     const chars = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-:./';
@@ -429,20 +418,16 @@ function animateSingleChar(element, fromChar, toChar, delay) {
     }, delay);
 }
 
-
 // 초기 로드
 loadAirportData().then(() => {
     fetchAllData();
 });
 
-
 // 10초마다 페이지 로테이션
 setInterval(rotatePage, ROTATION_INTERVAL);
 
-
 // 3분마다 API 새로 받기
 setInterval(fetchAllData, API_INTERVAL);
-
 
 // 화면 크기 변경시 재계산 (디바운스 적용)
 let resizeTimer;

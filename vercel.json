@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/*.js": {
+    "api/flights.js": {
       "maxDuration": 10
     }
   }

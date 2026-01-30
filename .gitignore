@@ -1,0 +1,22 @@
+# Environment variables (민감한 정보)
+.env
+.env.local
+.env.production
+.env.development
+
+# Vercel
+.vercel
+
+# Node modules (나중에 npm 사용 시)
+node_modules/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# 로그 파일
+*.log
+
+# 임시 파일
+*.tmp
+*.temp
